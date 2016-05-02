@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Akka.Persistence.TestKit</name>
+    </assembly>
+    <members>
+        <member name="M:Akka.Persistence.TestKit.Journal.JournalSpec.Initialize">
+            <summary>
+            Initializes a journal with set o predefined messages.
+            </summary>
+        </member>
+        <member name="M:Akka.Persistence.TestKit.Journal.JournalSpec.PreparePersistenceId(System.String)">
+            <summary>
+            Overridable hook that is called before populating the journal for the next test case.
+            <paramref name="pid"/> is the persistenceId that will be used in the test.
+            This method may be needed to clean pre-existing events from the log.
+            </summary>
+            <param name="pid"></param>
+        </member>
+        <member name="P:Akka.Persistence.TestKit.Journal.JournalSpec.SupportsAtomicPersistAllOfSeveralEvents">
+            <summary>
+            Implementation may override and return false if it does not support
+            atomic writes of several events, as emitted by
+            <see cref="M:Akka.Persistence.Eventsourced.PersistAll``1(System.Collections.Generic.IEnumerable{``0},System.Action{``0})"/>.
+            </summary>
+        </member>
+        <member name="P:Akka.Persistence.TestKit.Journal.JournalSpec.SupportsRejectingNonSerializableObjects">
+            <summary>
+            When true enables tests which check if the Journal properly rejects
+            writes of objects which are not serializable.
+            </summary>
+        </member>
+        <member name="T:Akka.Persistence.TestKit.Journal.JournalSpec.NotSerializableEvent">
+            <summary>
+            JSON serializer should fail on this
+            </summary>
+        </member>
+        <member name="T:Akka.Persistence.TestKit.Snapshot.SnapshotStoreSpec">
+            <summary>
+            This spec aims to verify custom <see cref="P:Akka.Persistence.TestKit.Snapshot.SnapshotStoreSpec.SnapshotStore"/> implementations. 
+            Every custom authors snapshot store spec should have it's spec suite included.
+            </summary>
+        </member>
+        <member name="M:Akka.Persistence.TestKit.Snapshot.SnapshotStoreSpec.Initialize">
+            <summary>
+            Initializes a snapshot store with set of predefined snapshots.
+            </summary>
+        </member>
+    </members>
+</doc>
