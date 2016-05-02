@@ -11,9 +11,7 @@ open Akka.Streams
 open Akka.Streams.Dsl
 open System
 open Microsoft.FSharp.Core.Printf
-open System.Threading
-
-type RUnit = System.Reactive.Streams.Unit
+open System.Collections.Concurrent
 
 [<AutoOpen>]
 module Utils =
@@ -21,47 +19,60 @@ module Utils =
     let (=>|) (src: Source<_,_>) sink = src.To(sink)
     let print fmt = kprintf (printf "%O %s" DateTime.Now) fmt
 
+let serviceState = ConcurrentDictionary<string, int>()
+let totalCount = ref 0
+
 let callService url input =
     async {
-        Console.WriteLine (print "Calling %s with %s..." url input)
-        do! Async.Sleep 5000
+        incr totalCount
+        if !totalCount = 30 then failwith "Failing as it's 30s call."
+        let _ = serviceState.AddOrUpdate(url, (fun _ -> 1), (fun _ count -> count + 1))
+        Console.WriteLine (print "Calling %s with %s. State: %A" url input (serviceState |> Seq.toList))
+        do! match url with
+            | "http://m1" -> Async.Sleep 100
+            | _ -> Async.Sleep 1000
+        let _ = serviceState.AddOrUpdate(url, (fun _ -> 1), (fun _ count -> count - 1))
         return input
     }
 
 let process' machine input =
-    let url = sprintf "http://%s/webservice/endpoint" machine
+    let url = sprintf "http://%s" machine
     async {
         return! callService url input
     }
 
-let distribute (workers: ('a -> Async<'b>)[]) =
-    GraphDsl.Create(fun b ->
-        let balancer = b.Add(Balance<_>(workers.Length))
-        let merger = b.Add(Merge<_>(workers.Length))
+let distribute (flows: Flow<_, _, _>[]) =
+    GraphDsl.Create(fun builder ->
+        let balancer = builder.Add(Balance<_>(flows.Length))
+        let merger = builder.Add(Merge<_>(flows.Length))
         
-        workers |> Array.iteri (fun i worker ->
-            b.From(balancer.Out i).Via(Flow.Create<_>().MapAsync(1, fun x -> Async.StartAsTask(worker x))).To(merger.In i) |> ignore)
+        flows |> Array.iteri (fun i flow ->
+            builder.From(balancer.Out i).Via(flow).To(merger.In i) |> ignore)
         
         FlowShape(balancer.In, merger.Out)
     )
 
-//let parallel' (workerCount: int) (flow: Flow<'a, 'b, RUnit>) =
-//    Array.init workerCount (fun _ -> flow) |> distribute
+let system = Configuration.defaultConfig() |> System.create "test"
+let materializer = 
+    ActorMaterializer.Create(
+        system, 
+        ActorMaterializerSettings.Create(system).WithSupervisionStrategy(Supervision.Deciders.ResumingDecider))
 
-let system = System.create "test" (Configuration.defaultConfig())
-let materializer = ActorMaterializer.Create system
-
-let renditions (machines: string list) (inputs: string[]) =
+let renditions (machines: string[]) (inputs: string[]) =
     let workerCount = 4
 
-    let flows =
+    let machineFlows =
         [| for machine in machines do
-             for _ in 1..workerCount do
-                 yield process' machine |]
+             yield Flow.Create<_>().MapAsyncUnordered(
+                     workerCount, 
+                     fun x -> Async.StartAsTask(process' machine x)) |]
     
     Source
         .From(inputs)
-        .Via(distribute flows)
+        .Via(distribute machineFlows)
         .RunFold([], (fun acc x -> x :: acc), materializer)
+        .Result
 
-renditions ["m1"; "m2"] (Array.init 20 string)
+renditions [|"m1"; "m2"|] (Array.init 200 string)
+|> List.rev
+|> List.iter (printfn "%A")
