@@ -51,6 +51,7 @@
     <Compile Include="Program.fs" />
     <None Include="Script.fsx" />
     <None Include="WorkDistribution.fsx" />
+    <None Include="Benchmark.fsx" />
     <None Include="App.config" />
     <None Include="paket.references" />
   </ItemGroup>

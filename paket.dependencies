@@ -2,3 +2,5 @@ source https://www.nuget.org/api/v2
 
 nuget FsPickler
 nuget Newtonsoft.Json
+nuget Hopac
+nuget FSharp.Control.AsyncSeq
